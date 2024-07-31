@@ -1,0 +1,47 @@
+*.class
+*.log
+*.zip
+*.gz
+*.jpeg
+*.jpg
+*.png
+*~
+
+# sbt specific
+.settings/
+.cache/
+.history/
+.lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+.project
+.classpath
+.cache
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+
+# IntelliJ IDEA specific
+**/.idea/
+**/target/
+**/*.iml
+
+.DS_Store
+
+## target folder at the top level of the project structue and paths and contents underneath it
+target/
+target/*
+
+## target folder at any level of the project structue
+**/target
+/target
+
+**/logs/fit
+logs/
+
+.env
