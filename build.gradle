@@ -12,6 +12,8 @@ repositories {
 dependencies {
     implementation "com.atlan:atlan-java:+" //
     testRuntimeOnly 'ch.qos.logback:logback-classic:1.2.11' //
+    implementation "org.apache.logging.log4j:log4j-core:2.22.0" //
+    implementation "org.apache.logging.log4j:log4j-slf4j2-impl:2.22.0"
 }
 
 test {

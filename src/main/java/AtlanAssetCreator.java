@@ -5,18 +5,14 @@ import com.atlan.exception.AtlanException;
 import com.atlan.exception.ErrorCode;
 import com.atlan.exception.InvalidRequestException;
 import com.atlan.exception.NotFoundException;
-import com.atlan.model.assets.Asset;
-import com.atlan.model.assets.Connection;
-import com.atlan.model.assets.IS3;
-import com.atlan.model.assets.S3Bucket;
+import com.atlan.model.assets.*;
 import com.atlan.model.core.AssetMutationResponse;
 import com.atlan.model.enums.AtlanConnectorType;
 import com.atlan.model.search.CompoundQuery;
 import com.atlan.model.search.IndexSearchRequest;
 import com.atlan.model.search.IndexSearchResponse;
 import com.atlan.net.HttpClient;
-import org.w3c.dom.Document;
-
+import org.w3c.dom.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
@@ -30,7 +26,7 @@ public class AtlanAssetCreator {
 
     public static final AtlanConnectorType CONNECTOR_TYPE = AtlanConnectorType.S3;
     public static final String CONNECTION_NAME = "aws-s3-connection-njay-v1";
-
+    public static final String OWNER = "nagajay_";
     static {
         Atlan.setBaseUrl(System.getenv("ATLAN_BASE_URL"));
         Atlan.setApiToken(System.getenv("ATLAN_API_KEY"));
@@ -66,6 +62,10 @@ public class AtlanAssetCreator {
             System.out.println("Connection QName ::" + connectionQualifiedName);
             System.out.println("Bucket :: " + bucket.getGuid());
             System.out.println("Bucket Qualified Name :: " + bucket.getQualifiedName());
+            System.out.println("Bucket Qualified Name :: " + bucket.getName());
+
+            // Create contents
+            createContents(doc, bucket);
 
 
 
@@ -75,6 +75,64 @@ public class AtlanAssetCreator {
         }
     }
 
+
+    private static void createContents(Document doc, S3Bucket bucket) throws AtlanException {
+        NodeList contentsList = doc.getElementsByTagName("Contents");
+        for (int i = 0; i < contentsList.getLength(); i++) {
+            Element content = (Element) contentsList.item(i);
+            String key = content.getElementsByTagName("Key").item(0).getTextContent();
+            String bucketName = bucket.getName();
+
+            final String OBJECT_ARN = "arn:aws:s3:::" + bucketName +"-njay-v1" + "/prefix/" + key;
+
+            try {
+                // Try to find existing S3 object
+                S3Object existingObject = getS3Object(key, bucket.getQualifiedName());
+                System.out.println("Using existing S3 object: " + existingObject.getQualifiedName());
+            } catch (NotFoundException e) {
+                // If not found, create new S3 object
+                S3Object newObject = createS3Object(key, bucket, OBJECT_ARN);
+                System.out.println("Created new S3 object: " + newObject.getQualifiedName());
+            }
+        }
+    }
+
+    private static S3Object getS3Object(String key, String bucketQualifiedName) throws AtlanException, NotFoundException {
+        AtlanClient client = Atlan.getDefaultClient();
+        IndexSearchRequest index = client.assets
+                .select()
+                .where(CompoundQuery.assetType(S3Object.TYPE_NAME))
+                .where(S3Object.NAME.eq(key))
+                .where(S3Object.S3BUCKET_QUALIFIED_NAME.eq(bucketQualifiedName))
+                .pageSize(1)
+                .toRequest();
+
+        IndexSearchResponse response = index.search();
+
+        if (response == null || response.getAssets() == null) {
+            throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "No S3 object found with key: " + key + " in bucket: " + bucketQualifiedName);
+        }
+
+        List<S3Object> objects = response.getAssets().stream()
+                .filter(asset -> asset instanceof S3Object)
+                .map(asset -> (S3Object) asset)
+                .collect(Collectors.toList());
+
+        if (objects.isEmpty()) {
+            throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "No S3 object found with key: " + key + " in bucket: " + bucketQualifiedName);
+        }
+
+        return objects.get(0);
+    }
+
+    private static S3Object createS3Object(String key, S3Bucket bucket, String objectArn) throws AtlanException {
+        S3Object object = S3Object.creator(key, bucket, objectArn)
+                .description("S3 object " + key)
+                .ownerUser(OWNER)
+                .build();
+        AssetMutationResponse objectResponse = object.save();
+        return objectResponse.getResult(object);
+    }
 
     private static S3Bucket getOrCreateS3Bucket(String bucketName, String connectionQualifiedName) throws AtlanException, InterruptedException {
         try {
@@ -96,7 +154,7 @@ public class AtlanAssetCreator {
                 .where(CompoundQuery.superType(IS3.TYPE_NAME))
                 .where(Asset.QUALIFIED_NAME.startsWith(connectionQualifiedName))
                 .where(Asset.NAME.eq(bucketName))
-                .pageSize(10)
+                .pageSize(1)
                 .sort(Asset.CREATE_TIME.order(SortOrder.Asc))
                 .includeOnResults(Asset.NAME)
                 .includeOnResults(Asset.CONNECTION_QUALIFIED_NAME)
@@ -120,8 +178,11 @@ public class AtlanAssetCreator {
     }
 
     private static S3Bucket createS3Bucket(String bucketName, String connectionQualifiedName) throws AtlanException {
-        S3Bucket bucket = S3Bucket.creator(bucketName, connectionQualifiedName)
-                .description("S3 bucket for " + bucketName+" v1")
+
+        final String BUCKET_ARN = "arn:aws:s3:::" + bucketName+"-njay-v1";
+        S3Bucket bucket = S3Bucket.creator(bucketName, connectionQualifiedName, BUCKET_ARN)
+                .description("S3 bucket for " + bucketName+"-njay-v1")
+                .ownerUser(OWNER)
                 .build();
         AssetMutationResponse response = bucket.save();
 
@@ -129,7 +190,7 @@ public class AtlanAssetCreator {
             throw new RuntimeException("Failed to create bucket");
         }
 
-        return (S3Bucket) response.getCreatedAssets().get(0);
+        return response.getResult(bucket);
     }
 
 
