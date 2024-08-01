@@ -2,7 +2,6 @@ import com.atlan.Atlan;
 import com.atlan.exception.AtlanException;
 import com.atlan.model.assets.Asset;
 import com.atlan.model.assets.Connection;
-import com.atlan.model.assets.S3Bucket;
 import com.atlan.model.search.IndexSearchRequest;
 import com.atlan.model.search.IndexSearchResponse;
 import org.slf4j.Logger;
@@ -124,23 +123,4 @@ public class AtlanAssetFinder {
         return response.getAssets();
     }
 
-
-    private static Asset findAssetInConnection(String connectionName, String assetName, String assetType) throws AtlanException {
-        IndexSearchRequest request = Atlan.getDefaultClient().assets
-                .select()
-                .where(Asset.TYPE_NAME.eq(assetType))
-                .where(Asset.NAME.eq(assetName))
-                .where(Asset.CONNECTION_NAME.eq(connectionName))
-                .pageSize(1)
-                .toRequest();
-
-        IndexSearchResponse response = request.search();
-
-        if (null == response.getAssets() || response.getAssets().isEmpty()) {
-            System.out.println("Asset not found: " + assetName + " in connection: " + connectionName);
-            return null;
-        }
-
-        return response.getAssets().get(0);
-    }
 }
