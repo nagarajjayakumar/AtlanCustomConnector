@@ -11,6 +11,7 @@ import com.atlan.model.search.IndexSearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,8 @@ public class AtlanLineageCreator {
     public static final String postgresConnectionName = "postgres-naj";
     public static final String snowflakeConnectionConnectionName = "snowflake-naj";
     public static final String OWNER = "nagajay_";
-
+    // Specify the path to your CSV file
+    public static final String csvFile = "lineage.csv";
     private static final Logger logger = LoggerFactory.getLogger(AtlanLineageCreator.class);
 
     /**
@@ -37,17 +39,28 @@ public class AtlanLineageCreator {
      */
     public static void main(String[] args) {
         try {
-            // Find the Postgres table
+
+
             Connection postgresConnection = findConnectionByName(postgresConnectionName);
-            Table postgresTable = (Table) findAssetInConnectionByName(postgresConnection.getQualifiedName(), "EMPLOYEES");
-
-            // Find the S3 object
             Connection s3Connection = findConnectionByName(s3ConnectionName);
-            S3Object s3Object = (S3Object) findAssetInConnectionByName(s3Connection.getQualifiedName(), "EMPLOYEES.csv");
-
-            // Find the Snowflake table
             Connection snowflakeConnection = findConnectionByName(snowflakeConnectionConnectionName);
-            Table snowflakeTable = (Table) findAssetInConnectionByName(snowflakeConnection.getQualifiedName(), "EMPLOYEES");
+
+            // Read lineage information from CSV file
+            String lineageString = readLineageFromCSV(csvFile);
+
+            String[] assets = lineageString.split(",");
+
+            if (assets.length != 3) {
+                logger.error("Invalid lineage string format. Expected 3 assets, got {}", assets.length);
+                return;
+            }
+
+            // Find the Postgres table
+            Table postgresTable = (Table) findAssetInConnectionByName(postgresConnection.getQualifiedName(), assets[0]);
+            // Find the S3 object
+            S3Object s3Object = (S3Object) findAssetInConnectionByName(s3Connection.getQualifiedName(), assets[1]);
+            // Find the Snowflake table
+            Table snowflakeTable = (Table) findAssetInConnectionByName(snowflakeConnection.getQualifiedName(), assets[2]);
 
             logAsset(postgresTable);
             logAsset(s3Object);
@@ -255,6 +268,23 @@ public class AtlanLineageCreator {
                 });
     }
 
+    /**
+     * Read from CSV File
+     * @param csvFile
+     * @return
+     * @throws IOException
+     */
+    private static String readLineageFromCSV(String csvFile) throws IOException {
+        ClassLoader classLoader = AtlanLineageCreator.class.getClassLoader();
+        try (InputStream is = classLoader.getResourceAsStream(csvFile);
+             BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+            String line = br.readLine();
+            if (line != null) {
+                return line.trim();
+            }
+            throw new IOException("CSV file is empty");
+        }
+    }
 
     /**
      * Logs information about an asset.
