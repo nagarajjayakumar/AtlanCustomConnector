@@ -2,19 +2,16 @@ import com.atlan.Atlan;
 import com.atlan.exception.AtlanException;
 import com.atlan.model.assets.Asset;
 import com.atlan.model.assets.Connection;
-import com.atlan.model.assets.S3Bucket;
 import com.atlan.model.core.AssetMutationResponse;
 import com.atlan.model.enums.AtlanConnectorType;
-import org.w3c.dom.Document;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class AtlanAssetPurger {
+
+    private static final Logger logger = LoggerFactory.getLogger(AtlanAssetPurger.class);
 
     public static final AtlanConnectorType CONNECTOR_TYPE = AtlanConnectorType.S3;
     public static final String CONNECTION_NAME = "aws-s3-connection-njay";
@@ -24,8 +21,12 @@ public class AtlanAssetPurger {
         Atlan.setApiToken(System.getenv("ATLAN_API_KEY"));
     }
 
+    /**
+     * Method to purge Atlan assets
+     * @param args
+     */
     public static void main(String[] args) {
-        System.out.println("Starting Atlan Asset Deletion ...");
+        logger.info("Starting Atlan Asset Deletion ...");
 
         try{
             AssetMutationResponse response =
@@ -33,21 +34,11 @@ public class AtlanAssetPurger {
 
 
             Asset deleted = response.getDeletedAssets().get(0);
-            System.out.println("Deleted --> " + deleted);
+            logger.info("Deleted --> " + deleted);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static Connection createS3Connection(String connectionName,
-                                                 AtlanConnectorType connectorType) throws AtlanException, InterruptedException {
-        Connection connection = Connection.creator(connectionName, connectorType)
-                .build();
-        AssetMutationResponse response = connection.save();
-
-        Asset created_asset = response.getCreatedAssets().get(0);
-        Connection result_connection = (Connection) created_asset;
-        return result_connection;
-    }
 }
