@@ -134,6 +134,11 @@ public class AtlanLineageCreator {
         return response.getAssets().get(0);
     }
 
+    /**
+     * Create lineage only if not exists
+     * @param params
+     * @throws AtlanException
+     */
     private static void createLineageIfNotExists(Map<String, Object> params) throws AtlanException {
         Asset sourceAsset = (Asset) params.get("sourceAsset");
         Asset targetAsset = (Asset) params.get("targetAsset");
@@ -147,6 +152,14 @@ public class AtlanLineageCreator {
         }
     }
 
+    /**
+     * Check if the lineage exists
+     * @param sourceGuid
+     * @param targetGuid
+     * @param direction
+     * @return
+     * @throws AtlanException
+     */
     private static boolean lineageExists(String sourceGuid, String targetGuid, AtlanLineageDirection direction) throws AtlanException {
         AtomicBoolean exists = new AtomicBoolean(false);
 
@@ -171,6 +184,11 @@ public class AtlanLineageCreator {
         return exists.get();
     }
 
+    /**
+     * method is used to create the lineage process
+     * @param params
+     * @throws AtlanException
+     */
     private static void createLineageProcess(Map<String, Object> params) throws AtlanException {
         Connection sourceConnection = (Connection) params.get("sourceConnection");
         Asset sourceAsset = (Asset) params.get("sourceAsset");
