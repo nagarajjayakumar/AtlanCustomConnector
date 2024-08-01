@@ -43,7 +43,7 @@ public class AtlanAssetFinder {
                 // Find all assets within the connection
                 List<Asset> assets = findAssetsInConnection(connection.getQualifiedName());
                 logger.debug("Found {} assets in the connection.", assets.size());
-                assets.forEach(a -> logger.debug("Asset: {}", a.getName()));
+                assets.forEach(a -> logger.debug("Asset: {}", a.getQualifiedName()));
             } else {
                 logger.debug("Connection not found.");
             }

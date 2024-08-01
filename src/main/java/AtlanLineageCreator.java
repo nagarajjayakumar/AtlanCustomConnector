@@ -11,7 +11,9 @@ import com.atlan.model.search.IndexSearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class AtlanLineageCreator {
 
@@ -45,19 +47,33 @@ public class AtlanLineageCreator {
             logAsset(s3Object);
             logAsset(snowflakeTable);
 
-//            if (postgresTable != null && s3Object != null && snowflakeTable != null) {
-//                // Create lineage process: Postgres → S3
-//                createLineageProcess(postgresTable, s3Object, "Postgres to S3");
-//
-//                // Create lineage process: S3 → Snowflake
-//                createLineageProcess(s3Object, snowflakeTable, "S3 to Snowflake");
-//
-//                // Verify lineage
-//                verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
-//                verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
-//            } else {
-//                System.out.println("One or more assets not found.");
-//            }
+            if (postgresTable != null && s3Object != null && snowflakeTable != null) {
+                // Create lineage process: Postgres → S3
+                // Create lineage process: Postgres → S3
+                Map<String, Object> postgresTo3SParams = new HashMap<>();
+                postgresTo3SParams.put("sourceConnection", postgresConnection);
+                postgresTo3SParams.put("sourceAsset", postgresTable);
+                postgresTo3SParams.put("targetAsset", s3Object);
+                postgresTo3SParams.put("processName", "Postgres to S3");
+                createLineageProcess(postgresTo3SParams);
+
+                // Create lineage process: S3 → Snowflake
+                Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
+                s3ToSnowflakeParams.put("sourceConnection", s3Connection);
+                s3ToSnowflakeParams.put("sourceAsset", s3Object);
+                s3ToSnowflakeParams.put("targetAsset", snowflakeTable);
+                s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
+                //createLineageProcess(s3ToSnowflakeParams);
+
+                // Create lineage process: S3 → Snowflake
+                //createLineageProcess(s3Object, snowflakeTable, "S3 to Snowflake");
+
+                // Verify lineage
+                verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
+                //verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
+            } else {
+                System.out.println("One or more assets not found.");
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -116,13 +132,23 @@ public class AtlanLineageCreator {
         return response.getAssets().get(0);
     }
 
-    private static void createLineageProcess(Asset sourceAsset, Asset targetAsset, String processName) throws AtlanException {
+    private static void createLineageProcess(Map<String, Object> params) throws AtlanException {
+        Connection sourceConnection = (Connection) params.get("sourceConnection");
+        Asset sourceAsset = (Asset) params.get("sourceAsset");
+        Asset targetAsset = (Asset) params.get("targetAsset");
+        String processName = (String) params.get("processName");
+
         String connectionQualifiedName = sourceAsset.getConnectionQualifiedName();
+        if(null == connectionQualifiedName) {
+            connectionQualifiedName = sourceConnection.getQualifiedName();
+            logger.debug("sourceAsset qualified name " + sourceAsset.getQualifiedName());
+            logger.debug("connection qualified name is not present in Asset .. trying with the source connection "+ connectionQualifiedName);
+        }
 
         LineageProcess process = LineageProcess.creator(
                         processName,
                         connectionQualifiedName,
-                        "dag_" + processName.replaceAll("\\s+", "_").toLowerCase(),
+                        "nj_dag_" + processName.replaceAll("\\s+", "_").toLowerCase(),
                         List.of(
                                 sourceAsset instanceof Table ? Table.refByGuid(sourceAsset.getGuid()) : S3Object.refByGuid(sourceAsset.getGuid())
                         ),
@@ -130,8 +156,8 @@ public class AtlanLineageCreator {
                                 targetAsset instanceof Table ? Table.refByGuid(targetAsset.getGuid()) : S3Object.refByGuid(targetAsset.getGuid())
                         ),
                         null)
-                .sql("SELECT * FROM " + sourceAsset.getName() + ";")
-                .sourceURL("https://your.orchestrator/unique/id/" + processName.replaceAll("\\s+", "_").toLowerCase())
+                //.sql("SELECT * FROM " + sourceAsset.getName() + ";")
+                //.sourceURL("https://your.orchestrator/unique/id/" + processName.replaceAll("\\s+", "_").toLowerCase())
                 .build();
 
         AssetMutationResponse response = process.save();
