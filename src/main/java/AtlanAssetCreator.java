@@ -64,6 +64,7 @@ public class AtlanAssetCreator {
             // Get bucket name
             String bucketName = doc.getElementsByTagName("Name").item(0).getTextContent();
 
+            // Create s3 bucket based on the bucket name
             S3Bucket bucket = getOrCreateS3Bucket(bucketName, connectionQualifiedName);
 
             logger.info("Connection       ::" + connection.getGuid());
@@ -72,7 +73,7 @@ public class AtlanAssetCreator {
             logger.info("Bucket Qualified Name :: " + bucket.getQualifiedName());
             logger.info("Bucket Qualified Name :: " + bucket.getName());
 
-            // Create contents
+            // Create s3 object based on the bucket list
             createContents(doc, bucket);
 
         } catch (Exception e) {
