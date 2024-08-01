@@ -52,6 +52,7 @@ public class AtlanLineageCreator {
 
             for (String[] assets : lineageRows) {
 
+                logger.error("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 if (assets.length != 3) {
                     logger.error("Invalid lineage string format. Expected 3 assets, got {}", assets.length);
                     return;
@@ -75,8 +76,8 @@ public class AtlanLineageCreator {
                     postgresTo3SParams.put("sourceAsset", postgresTable);
                     postgresTo3SParams.put("targetAsset", s3Object);
                     postgresTo3SParams.put("processName", "Postgres to S3");
-                    //createLineageIfNotExists(postgresTo3SParams);
-                    createLineageProcess(postgresTo3SParams);
+                    createLineageIfNotExists(postgresTo3SParams);
+                    //createLineageProcess(postgresTo3SParams);
 
                     // Create lineage process: S3 → Snowflake
                     Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
@@ -84,8 +85,8 @@ public class AtlanLineageCreator {
                     s3ToSnowflakeParams.put("sourceAsset", s3Object);
                     s3ToSnowflakeParams.put("targetAsset", snowflakeTable);
                     s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
-                    //createLineageIfNotExists(s3ToSnowflakeParams);
-                    createLineageProcess(s3ToSnowflakeParams);
+                    createLineageIfNotExists(s3ToSnowflakeParams);
+                    //createLineageProcess(s3ToSnowflakeParams);
 
                     // Verify lineage
                     verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
@@ -193,7 +194,7 @@ public class AtlanLineageCreator {
                 .forEach(result -> {
                     if (result.getGuid().equals(targetGuid)) {
                         exists.set(true);
-                        logger.info("Existing lineage found from {} to {}", sourceGuid, targetGuid);
+                        //logger.info("Existing lineage found from {} to {}", sourceGuid, targetGuid);
                         logger.info("Source Asset - Qualified Name: {}, GUID: {}", sourceQualifiedName, sourceGuid);
                         logger.info("Target Asset - Qualified Name: {}, GUID: {}", result.getQualifiedName(), result.getGuid());
                     }
@@ -235,10 +236,6 @@ public class AtlanLineageCreator {
                 .build();
 
         AssetMutationResponse response = process.save();
-
-//        if (response.getCreatedAssets().isEmpty() && response.getUpdatedAssets().isEmpty()) {
-//            throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "Failed to create lineage process: " + processName);
-//        }
 
         logger.info("Lineage process created successfully: " + processName);
         logger.info("Created assets: " + response.getCreatedAssets().size());
