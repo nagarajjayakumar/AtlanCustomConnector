@@ -1,10 +1,7 @@
 import com.atlan.Atlan;
-import com.atlan.exception.AtlanException;
 import com.atlan.model.assets.Asset;
-import com.atlan.model.assets.Connection;
 import com.atlan.model.core.AssetMutationResponse;
 import com.atlan.model.enums.AtlanConnectorType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
