@@ -22,7 +22,12 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class AtlanAssetCreator {
+
+    private static final Logger logger = LoggerFactory.getLogger(AtlanAssetCreator.class);
 
     public static final AtlanConnectorType CONNECTOR_TYPE = AtlanConnectorType.S3;
     public static final String CONNECTION_NAME = "aws-s3-connection-njay-v1";
@@ -33,7 +38,7 @@ public class AtlanAssetCreator {
     }
 
     public static void main(String[] args) {
-        System.out.println("Starting Atlan Asset Creation...");
+        logger.info("Starting Atlan Asset Creation...");
 
         String xmlFilePath = "/Users/njayakumar/Desktop/ak/naga/workspace/AtlanCustomConnector/src/main/java/s3-buckets.xml";
         try {
@@ -41,7 +46,7 @@ public class AtlanAssetCreator {
             // Create S3 connection
             Connection connection = getOrCreateS3Connection(CONNECTION_NAME, CONNECTOR_TYPE);
             String connectionQualifiedName = connection.getQualifiedName();
-            System.out.println("Connection       ::" + connection.getGuid());
+            logger.info("Connection       ::" + connection.getGuid());
             // Read XML content from file
             String xmlContent = new String(Files.readAllBytes(Paths.get(xmlFilePath)), StandardCharsets.UTF_8);
 
@@ -58,17 +63,14 @@ public class AtlanAssetCreator {
 
             S3Bucket bucket = getOrCreateS3Bucket(bucketName, connectionQualifiedName);
 
-            System.out.println("Connection       ::" + connection.getGuid());
-            System.out.println("Connection QName ::" + connectionQualifiedName);
-            System.out.println("Bucket :: " + bucket.getGuid());
-            System.out.println("Bucket Qualified Name :: " + bucket.getQualifiedName());
-            System.out.println("Bucket Qualified Name :: " + bucket.getName());
+            logger.info("Connection       ::" + connection.getGuid());
+            logger.info("Connection QName ::" + connectionQualifiedName);
+            logger.info("Bucket :: " + bucket.getGuid());
+            logger.info("Bucket Qualified Name :: " + bucket.getQualifiedName());
+            logger.info("Bucket Qualified Name :: " + bucket.getName());
 
             // Create contents
             createContents(doc, bucket);
-
-
-
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -76,6 +78,12 @@ public class AtlanAssetCreator {
     }
 
 
+    /**
+     * Create the assest - individual s3 objects
+     * @param doc
+     * @param bucket
+     * @throws AtlanException
+     */
     private static void createContents(Document doc, S3Bucket bucket) throws AtlanException {
         NodeList contentsList = doc.getElementsByTagName("Contents");
         for (int i = 0; i < contentsList.getLength(); i++) {
@@ -88,11 +96,11 @@ public class AtlanAssetCreator {
             try {
                 // Try to find existing S3 object
                 S3Object existingObject = getS3Object(key, bucket.getQualifiedName());
-                System.out.println("Using existing S3 object: " + existingObject.getQualifiedName());
+                logger.info("Using existing S3 object: " + existingObject.getQualifiedName());
             } catch (NotFoundException e) {
                 // If not found, create new S3 object
                 S3Object newObject = createS3Object(key, bucket, OBJECT_ARN);
-                System.out.println("Created new S3 object: " + newObject.getQualifiedName());
+                logger.info("Created new S3 object: " + newObject.getQualifiedName());
             }
         }
     }
@@ -137,10 +145,10 @@ public class AtlanAssetCreator {
     private static S3Bucket getOrCreateS3Bucket(String bucketName, String connectionQualifiedName) throws AtlanException, InterruptedException {
         try {
             List<S3Bucket> existingBuckets = findS3BucketByName(bucketName, connectionQualifiedName);
-            System.out.println("Using existing bucket: " + bucketName);
+            logger.info("Using existing bucket: " + bucketName);
             return existingBuckets.get(0);
         } catch (NotFoundException e) {
-            System.out.println("Creating new bucket: " + bucketName);
+            logger.info("Creating new bucket: " + bucketName);
             return createS3Bucket(bucketName, connectionQualifiedName);
         }
     }
@@ -198,10 +206,10 @@ public class AtlanAssetCreator {
 
         try {
             List<Connection> existingConnections = Connection.findByName(connectionName, connectorType);
-            System.out.println("Using existing connection: " + connectionName);
+            logger.info("Using existing connection: " + connectionName);
             return existingConnections.get(0);
         } catch (NotFoundException e) {
-            System.out.println("Creating new connection: " + connectionName);
+            logger.info("Creating new connection: " + connectionName);
             return createS3Connection(connectionName, connectorType);
         }
 
