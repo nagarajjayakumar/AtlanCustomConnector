@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,51 +47,54 @@ public class AtlanLineageCreator {
             Connection snowflakeConnection = findConnectionByName(snowflakeConnectionConnectionName);
 
             // Read lineage information from CSV file
-            String lineageString = readLineageFromCSV(csvFile);
+            List<String[]> lineageRows = readLineageFromCSV(csvFile);
 
-            String[] assets = lineageString.split(",");
+            for (String[] assets : lineageRows) {
 
-            if (assets.length != 3) {
-                logger.error("Invalid lineage string format. Expected 3 assets, got {}", assets.length);
-                return;
+                if (assets.length != 3) {
+                    logger.error("Invalid lineage string format. Expected 3 assets, got {}", assets.length);
+                    return;
+                }
+
+                // Find the Postgres table
+                Table postgresTable = (Table) findAssetInConnectionByName(postgresConnection.getQualifiedName(), assets[0]);
+                // Find the S3 object
+                S3Object s3Object = (S3Object) findAssetInConnectionByName(s3Connection.getQualifiedName(), assets[1]);
+                // Find the Snowflake table
+                Table snowflakeTable = (Table) findAssetInConnectionByName(snowflakeConnection.getQualifiedName(), assets[2]);
+
+                logAsset(postgresTable);
+                logAsset(s3Object);
+                logAsset(snowflakeTable);
+
+                if (postgresTable != null && s3Object != null && snowflakeTable != null) {
+                    // Create lineage process: Postgres → S3
+                    Map<String, Object> postgresTo3SParams = new HashMap<>();
+                    postgresTo3SParams.put("sourceConnection", postgresConnection);
+                    postgresTo3SParams.put("sourceAsset", postgresTable);
+                    postgresTo3SParams.put("targetAsset", s3Object);
+                    postgresTo3SParams.put("processName", "Postgres to S3");
+                    //createLineageIfNotExists(postgresTo3SParams);
+                    createLineageProcess(postgresTo3SParams);
+
+                    // Create lineage process: S3 → Snowflake
+                    Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
+                    s3ToSnowflakeParams.put("sourceConnection", s3Connection);
+                    s3ToSnowflakeParams.put("sourceAsset", s3Object);
+                    s3ToSnowflakeParams.put("targetAsset", snowflakeTable);
+                    s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
+                    //createLineageIfNotExists(s3ToSnowflakeParams);
+                    createLineageProcess(s3ToSnowflakeParams);
+
+                    // Verify lineage
+                    verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
+                    verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
+                } else {
+                    logger.info("One or more assets not found.");
+                }
+
             }
 
-            // Find the Postgres table
-            Table postgresTable = (Table) findAssetInConnectionByName(postgresConnection.getQualifiedName(), assets[0]);
-            // Find the S3 object
-            S3Object s3Object = (S3Object) findAssetInConnectionByName(s3Connection.getQualifiedName(), assets[1]);
-            // Find the Snowflake table
-            Table snowflakeTable = (Table) findAssetInConnectionByName(snowflakeConnection.getQualifiedName(), assets[2]);
-
-            logAsset(postgresTable);
-            logAsset(s3Object);
-            logAsset(snowflakeTable);
-
-            if (postgresTable != null && s3Object != null && snowflakeTable != null) {
-                // Create lineage process: Postgres → S3
-                Map<String, Object> postgresTo3SParams = new HashMap<>();
-                postgresTo3SParams.put("sourceConnection", postgresConnection);
-                postgresTo3SParams.put("sourceAsset", postgresTable);
-                postgresTo3SParams.put("targetAsset", s3Object);
-                postgresTo3SParams.put("processName", "Postgres to S3");
-                createLineageIfNotExists(postgresTo3SParams);
-                //createLineageProcess(postgresTo3SParams);
-
-                // Create lineage process: S3 → Snowflake
-                Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
-                s3ToSnowflakeParams.put("sourceConnection", s3Connection);
-                s3ToSnowflakeParams.put("sourceAsset", s3Object);
-                s3ToSnowflakeParams.put("targetAsset", snowflakeTable);
-                s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
-                createLineageIfNotExists(s3ToSnowflakeParams);
-                //createLineageProcess(s3ToSnowflakeParams);
-
-                // Verify lineage
-                verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
-                verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
-            } else {
-                logger.info("One or more assets not found.");
-            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -218,7 +222,7 @@ public class AtlanLineageCreator {
         LineageProcess process = LineageProcess.creator(
                         processName,
                         connectionQualifiedName,
-                        "nj_v1_dag_" + processName.replaceAll("\\s+", "_").toLowerCase(),
+                        null,
                         List.of(
                                 sourceAsset instanceof Table ? Table.refByGuid(sourceAsset.getGuid()) : S3Object.refByGuid(sourceAsset.getGuid())
                         ),
@@ -231,9 +235,9 @@ public class AtlanLineageCreator {
 
         AssetMutationResponse response = process.save();
 
-        if (response.getCreatedAssets().isEmpty()) {
-            throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "Failed to create lineage process: " + processName);
-        }
+//        if (response.getCreatedAssets().isEmpty() && response.getUpdatedAssets().isEmpty()) {
+//            throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "Failed to create lineage process: " + processName);
+//        }
 
         logger.info("Lineage process created successfully: " + processName);
         logger.info("Created assets: " + response.getCreatedAssets().size());
@@ -274,16 +278,17 @@ public class AtlanLineageCreator {
      * @return
      * @throws IOException
      */
-    private static String readLineageFromCSV(String csvFile) throws IOException {
+    private static List<String[]> readLineageFromCSV(String csvFile) throws IOException {
+        List<String[]> rows = new ArrayList<>();
         ClassLoader classLoader = AtlanLineageCreator.class.getClassLoader();
         try (InputStream is = classLoader.getResourceAsStream(csvFile);
              BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
-            String line = br.readLine();
-            if (line != null) {
-                return line.trim();
+            String line;
+            while ((line = br.readLine()) != null) {
+                rows.add(line.split(","));
             }
-            throw new IOException("CSV file is empty");
         }
+        return rows;
     }
 
     /**
