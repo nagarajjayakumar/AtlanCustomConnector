@@ -16,6 +16,8 @@ import org.w3c.dom.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -37,18 +39,19 @@ public class AtlanAssetCreator {
         Atlan.setApiToken(System.getenv("ATLAN_API_KEY"));
     }
 
+    public static final String xmlFileName = "s3-buckets.xml";
+
     public static void main(String[] args) {
         logger.info("Starting Atlan Asset Creation...");
 
-        String xmlFilePath = "/Users/njayakumar/Desktop/ak/naga/workspace/AtlanCustomConnector/src/main/java/s3-buckets.xml";
         try {
-
             // Create S3 connection
             Connection connection = getOrCreateS3Connection(CONNECTION_NAME, CONNECTOR_TYPE);
             String connectionQualifiedName = connection.getQualifiedName();
             logger.info("Connection       ::" + connection.getGuid());
-            // Read XML content from file
-            String xmlContent = new String(Files.readAllBytes(Paths.get(xmlFilePath)), StandardCharsets.UTF_8);
+
+            // Read XML content from resource folder
+            String xmlContent = readXmlFromResource(xmlFileName);
 
             // Parse the XML
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -319,6 +322,21 @@ public class AtlanAssetCreator {
             Thread.sleep(HttpClient.waitTime(++retryCount).toMillis());
         }
         throw new RuntimeException("Failed to get expected search results after " + retryCount + " retries");
+    }
+
+    /**
+     * Reads XML content from a resource file.
+     * @param fileName Name of the XML file in the resources folder
+     * @return String containing the XML content
+     * @throws IOException if there's an error reading the file
+     */
+    private static String readXmlFromResource(String fileName) throws IOException {
+        try (InputStream inputStream = AtlanAssetCreator.class.getClassLoader().getResourceAsStream(fileName)) {
+            if (inputStream == null) {
+                throw new IOException("Resource not found: " + fileName);
+            }
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
 }
