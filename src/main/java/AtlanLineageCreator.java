@@ -22,13 +22,17 @@ public class AtlanLineageCreator {
         Atlan.setApiToken(System.getenv("ATLAN_API_KEY"));
     }
 
-
-    public static final  String s3ConnectionName = "aws-s3-connection-njay-v1";
-    public static final  String postgresConnectionName = "postgres-naj";
-    public static final  String snowflakeConnectionConnectionName = "snowflake-naj";
+    public static final String s3ConnectionName = "aws-s3-connection-njay-v1";
+    public static final String postgresConnectionName = "postgres-naj";
+    public static final String snowflakeConnectionConnectionName = "snowflake-naj";
 
     private static final Logger logger = LoggerFactory.getLogger(AtlanLineageCreator.class);
 
+    /**
+     * Main method to execute the lineage creation process.
+     *
+     * @param args Command line arguments (not used)
+     */
     public static void main(String[] args) {
         try {
             // Find the Postgres table
@@ -49,13 +53,12 @@ public class AtlanLineageCreator {
 
             if (postgresTable != null && s3Object != null && snowflakeTable != null) {
                 // Create lineage process: Postgres → S3
-                // Create lineage process: Postgres → S3
                 Map<String, Object> postgresTo3SParams = new HashMap<>();
                 postgresTo3SParams.put("sourceConnection", postgresConnection);
                 postgresTo3SParams.put("sourceAsset", postgresTable);
                 postgresTo3SParams.put("targetAsset", s3Object);
                 postgresTo3SParams.put("processName", "Postgres to S3");
-                createLineageProcess(postgresTo3SParams);
+                //createLineageProcess(postgresTo3SParams);
 
                 // Create lineage process: S3 → Snowflake
                 Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
@@ -65,21 +68,16 @@ public class AtlanLineageCreator {
                 s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
                 //createLineageProcess(s3ToSnowflakeParams);
 
-                // Create lineage process: S3 → Snowflake
-                //createLineageProcess(s3Object, snowflakeTable, "S3 to Snowflake");
-
                 // Verify lineage
                 verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
                 //verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
             } else {
-                System.out.println("One or more assets not found.");
+                logger.info("One or more assets not found.");
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 
     /**
      * Finds a connection by its name.
@@ -132,6 +130,12 @@ public class AtlanLineageCreator {
         return response.getAssets().get(0);
     }
 
+    /**
+     * Creates a lineage process between two assets.
+     *
+     * @param params A map containing the parameters for the lineage process.
+     * @throws AtlanException If there's an error creating the lineage process.
+     */
     private static void createLineageProcess(Map<String, Object> params) throws AtlanException {
         Connection sourceConnection = (Connection) params.get("sourceConnection");
         Asset sourceAsset = (Asset) params.get("sourceAsset");
@@ -166,12 +170,24 @@ public class AtlanLineageCreator {
             throw new NotFoundException(ErrorCode.NOT_FOUND_PASSTHROUGH, "Failed to create lineage process: " + processName);
         }
 
-        System.out.println("Lineage process created successfully: " + processName);
-        System.out.println("Created assets: " + response.getCreatedAssets().size());
-        System.out.println("Updated assets: " + response.getUpdatedAssets().size());
+        logger.info("Lineage process created successfully: " + processName);
+        logger.info("Created assets: " + response.getCreatedAssets().size());
+        logger.info("Updated assets: " + response.getUpdatedAssets().size());
     }
 
+    /**
+     * Verifies the lineage between two assets.
+     *
+     * @param sourceGuid The GUID of the source asset.
+     * @param targetGuid The GUID of the target asset.
+     * @param direction The direction of the lineage.
+     * @throws AtlanException If there's an error verifying the lineage.
+     */
     private static void verifyLineage(String sourceGuid, String targetGuid, AtlanLineageDirection direction) throws AtlanException {
+        // First, fetch the source asset to get its qualified name
+        Asset sourceAsset = Asset.get(Atlan.getDefaultClient(),sourceGuid, false);
+        String sourceQualifiedName = sourceAsset != null ? sourceAsset.getQualifiedName() : "Unknown";
+
         FluentLineage.builder(Atlan.getDefaultClient(), sourceGuid)
                 .direction(direction)
                 .stream()
@@ -179,13 +195,19 @@ public class AtlanLineageCreator {
                 .limit(100)
                 .forEach(result -> {
                     if (result.getGuid().equals(targetGuid)) {
-                        System.out.println("Lineage verified successfully from " + sourceGuid + " to " + targetGuid);
+                        logger.info("Lineage verified successfully");
+                        logger.info("Source Asset - Qualified Name: {}, GUID: {}", sourceQualifiedName, sourceGuid);
+                        logger.info("Target Asset - Qualified Name: {}, GUID: {}", result.getQualifiedName(), result.getGuid());
                     }
                 });
     }
 
 
-
+    /**
+     * Logs information about an asset.
+     *
+     * @param asset The asset to log information about.
+     */
     private static void logAsset(Asset asset) {
         if (asset != null) {
             logger.info("Found asset: {}", asset.getQualifiedName());
@@ -193,5 +215,4 @@ public class AtlanLineageCreator {
             logger.info("Asset not found.");
         }
     }
-
 }
