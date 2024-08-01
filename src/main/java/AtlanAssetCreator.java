@@ -105,6 +105,14 @@ public class AtlanAssetCreator {
         }
     }
 
+    /**
+     * Search for existing s3 object
+     * @param key
+     * @param bucketQualifiedName
+     * @return
+     * @throws AtlanException
+     * @throws NotFoundException
+     */
     private static S3Object getS3Object(String key, String bucketQualifiedName) throws AtlanException, NotFoundException {
         AtlanClient client = Atlan.getDefaultClient();
         IndexSearchRequest index = client.assets
@@ -133,6 +141,14 @@ public class AtlanAssetCreator {
         return objects.get(0);
     }
 
+    /**
+     * Create s3 object
+     * @param key
+     * @param bucket
+     * @param objectArn
+     * @return
+     * @throws AtlanException
+     */
     private static S3Object createS3Object(String key, S3Bucket bucket, String objectArn) throws AtlanException {
         S3Object object = S3Object.creator(key, bucket, objectArn)
                 .description("S3 object " + key)
@@ -142,6 +158,14 @@ public class AtlanAssetCreator {
         return objectResponse.getResult(object);
     }
 
+    /**
+     * this method used to get s3 bucket or create s3 buket
+     * @param bucketName
+     * @param connectionQualifiedName
+     * @return
+     * @throws AtlanException
+     * @throws InterruptedException
+     */
     private static S3Bucket getOrCreateS3Bucket(String bucketName, String connectionQualifiedName) throws AtlanException, InterruptedException {
         try {
             List<S3Bucket> existingBuckets = findS3BucketByName(bucketName, connectionQualifiedName);
@@ -154,6 +178,14 @@ public class AtlanAssetCreator {
     }
 
 
+    /**
+     * Find the s3 bucket by name
+     * @param bucketName
+     * @param connectionQualifiedName
+     * @return
+     * @throws AtlanException
+     * @throws InterruptedException
+     */
     private static List<S3Bucket> findS3BucketByName(String bucketName, String connectionQualifiedName) throws AtlanException,  InterruptedException {
         AtlanClient client = Atlan.getDefaultClient();
 
@@ -185,6 +217,13 @@ public class AtlanAssetCreator {
         return buckets;
     }
 
+    /**
+     * Create S3 bucket
+     * @param bucketName
+     * @param connectionQualifiedName
+     * @return
+     * @throws AtlanException
+     */
     private static S3Bucket createS3Bucket(String bucketName, String connectionQualifiedName) throws AtlanException {
 
         final String BUCKET_ARN = "arn:aws:s3:::" + bucketName+"-njay-v1";
@@ -202,6 +241,14 @@ public class AtlanAssetCreator {
     }
 
 
+    /**
+     * Get or create S3 connection based on the connection name
+     * @param connectionName
+     * @param connectorType
+     * @return
+     * @throws AtlanException
+     * @throws InterruptedException
+     */
     private static Connection getOrCreateS3Connection( String connectionName, AtlanConnectorType connectorType) throws AtlanException, InterruptedException {
 
         try {
@@ -215,6 +262,14 @@ public class AtlanAssetCreator {
 
     }
 
+    /**
+     * Create s3 connection object
+     * @param connectionName
+     * @param connectorType
+     * @return
+     * @throws AtlanException
+     * @throws InterruptedException
+     */
     private static Connection createS3Connection(String connectionName,
                                                  AtlanConnectorType connectorType) throws AtlanException, InterruptedException {
         Connection connection = Connection.creator(connectionName, connectorType)
@@ -245,6 +300,14 @@ public class AtlanAssetCreator {
         return result_connection;
     }
 
+    /**
+     * Util method to retry the search until expected counted is reached
+     * @param request
+     * @param expectedCount
+     * @return
+     * @throws AtlanException
+     * @throws InterruptedException
+     */
     private static IndexSearchResponse retrySearchUntil(IndexSearchRequest request, long expectedCount) throws AtlanException, InterruptedException {
         int retryCount = 0;
         IndexSearchResponse response = null;
