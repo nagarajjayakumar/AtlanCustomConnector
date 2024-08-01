@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AtlanLineageCreator {
 
@@ -58,7 +59,7 @@ public class AtlanLineageCreator {
                 postgresTo3SParams.put("sourceAsset", postgresTable);
                 postgresTo3SParams.put("targetAsset", s3Object);
                 postgresTo3SParams.put("processName", "Postgres to S3");
-                //createLineageProcess(postgresTo3SParams);
+                createLineageIfNotExists(postgresTo3SParams);
 
                 // Create lineage process: S3 → Snowflake
                 Map<String, Object> s3ToSnowflakeParams = new HashMap<>();
@@ -66,11 +67,11 @@ public class AtlanLineageCreator {
                 s3ToSnowflakeParams.put("sourceAsset", s3Object);
                 s3ToSnowflakeParams.put("targetAsset", snowflakeTable);
                 s3ToSnowflakeParams.put("processName", "S3 to Snowflake");
-                //createLineageProcess(s3ToSnowflakeParams);
+                createLineageIfNotExists(s3ToSnowflakeParams);
 
                 // Verify lineage
                 verifyLineage(postgresTable.getGuid(), s3Object.getGuid(), AtlanLineageDirection.DOWNSTREAM);
-                //verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
+                verifyLineage(s3Object.getGuid(), snowflakeTable.getGuid(), AtlanLineageDirection.DOWNSTREAM);
             } else {
                 logger.info("One or more assets not found.");
             }
@@ -130,12 +131,39 @@ public class AtlanLineageCreator {
         return response.getAssets().get(0);
     }
 
-    /**
-     * Creates a lineage process between two assets.
-     *
-     * @param params A map containing the parameters for the lineage process.
-     * @throws AtlanException If there's an error creating the lineage process.
-     */
+    private static void createLineageIfNotExists(Map<String, Object> params) throws AtlanException {
+        Asset sourceAsset = (Asset) params.get("sourceAsset");
+        Asset targetAsset = (Asset) params.get("targetAsset");
+        String processName = (String) params.get("processName");
+
+        if (!lineageExists(sourceAsset.getGuid(), targetAsset.getGuid(), AtlanLineageDirection.DOWNSTREAM)) {
+            logger.debug("lineage not exists.. creating lineage.. "+ processName );
+            createLineageProcess(params);
+        } else {
+            logger.info("Lineage already exists from {} to {}. Skipping creation.", sourceAsset.getQualifiedName(), targetAsset.getQualifiedName());
+        }
+    }
+
+    private static boolean lineageExists(String sourceGuid, String targetGuid, AtlanLineageDirection direction) throws AtlanException {
+        AtomicBoolean exists = new AtomicBoolean(false);
+
+        FluentLineage.builder(Atlan.getDefaultClient(), sourceGuid)
+                .direction(direction)
+                .stream()
+                .filter(a -> !(a instanceof LineageProcess))
+                .limit(100)
+                .forEach(result -> {
+                    if (result.getGuid().equals(targetGuid)) {
+                        exists.set(true);
+                        logger.info("Existing lineage found from {} to {}", sourceGuid, targetGuid);
+                        logger.info("Source Asset - Qualified Name: {}, GUID: {}", result.getQualifiedName(), sourceGuid);
+                        logger.info("Target Asset - Qualified Name: {}, GUID: {}", result.getQualifiedName(), result.getGuid());
+                    }
+                });
+
+        return exists.get();
+    }
+
     private static void createLineageProcess(Map<String, Object> params) throws AtlanException {
         Connection sourceConnection = (Connection) params.get("sourceConnection");
         Asset sourceAsset = (Asset) params.get("sourceAsset");
@@ -160,8 +188,6 @@ public class AtlanLineageCreator {
                                 targetAsset instanceof Table ? Table.refByGuid(targetAsset.getGuid()) : S3Object.refByGuid(targetAsset.getGuid())
                         ),
                         null)
-                //.sql("SELECT * FROM " + sourceAsset.getName() + ";")
-                //.sourceURL("https://your.orchestrator/unique/id/" + processName.replaceAll("\\s+", "_").toLowerCase())
                 .build();
 
         AssetMutationResponse response = process.save();
@@ -174,6 +200,7 @@ public class AtlanLineageCreator {
         logger.info("Created assets: " + response.getCreatedAssets().size());
         logger.info("Updated assets: " + response.getUpdatedAssets().size());
     }
+
 
     /**
      * Verifies the lineage between two assets.
