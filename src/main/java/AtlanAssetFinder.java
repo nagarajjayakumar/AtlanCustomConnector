@@ -4,10 +4,14 @@ import com.atlan.model.assets.Asset;
 import com.atlan.model.assets.Connection;
 import com.atlan.model.search.IndexSearchRequest;
 import com.atlan.model.search.IndexSearchResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class AtlanAssetFinder {
+
+    private static final Logger logger = LoggerFactory.getLogger(AtlanAssetFinder.class);
 
     static {
         Atlan.setBaseUrl(System.getenv("ATLAN_BASE_URL"));
@@ -24,27 +28,27 @@ public class AtlanAssetFinder {
             Connection connection = findConnectionByName(connectionName);
 
             if (connection != null) {
-                System.out.println("Found connection: " + connection.getQualifiedName());
+                logger.debug("Found connection: {}", connection.getQualifiedName());
 
                 // Find asset within the connection by name
                 Asset asset = findAssetInConnectionByName(connection.getQualifiedName(), assetName);
 
                 if (asset != null) {
-                    System.out.println("Found asset: " + asset.getQualifiedName());
+                    logger.debug("Found asset: {}", asset.getQualifiedName());
                 } else {
-                    System.out.println("Asset not found.");
+                    logger.debug("Asset not found.");
                 }
 
                 // Find all assets within the connection
                 List<Asset> assets = findAssetsInConnection(connection.getQualifiedName());
-                System.out.println("Found " + assets.size() + " assets in the connection.");
-                assets.forEach(a -> System.out.println("Asset: " + a.getName()));
+                logger.debug("Found {} assets in the connection.", assets.size());
+                assets.forEach(a -> logger.debug("Asset: {}", a.getName()));
             } else {
-                System.out.println("Connection not found.");
+                logger.debug("Connection not found.");
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("An error occurred:", e);
         }
     }
 

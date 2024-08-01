@@ -13,8 +13,8 @@
         </File>
     </Appenders>
     <Loggers>
-        <Root level="INFO">
-            <AppenderRef ref="ConsoleAppender" level="INFO"/>
+        <Root level="DEBUG">
+            <AppenderRef ref="ConsoleAppender" level="DEBUG"/>
             <AppenderRef ref="FileAppender"/>
         </Root>
         <Logger name="com.atlan" level="INFO"/>
