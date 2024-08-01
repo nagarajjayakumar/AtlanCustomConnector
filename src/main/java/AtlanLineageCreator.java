@@ -42,7 +42,6 @@ public class AtlanLineageCreator {
     public static void main(String[] args) {
         try {
 
-
             Connection postgresConnection = findConnectionByName(postgresConnectionName);
             Connection s3Connection = findConnectionByName(s3ConnectionName);
             Connection snowflakeConnection = findConnectionByName(snowflakeConnectionConnectionName);
@@ -51,7 +50,6 @@ public class AtlanLineageCreator {
             List<String[]> lineageRows = readLineageFromCSV(csvFile);
 
             for (String[] assets : lineageRows) {
-
                 logger.error("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 if (assets.length != 3) {
                     logger.error("Invalid lineage string format. Expected 3 assets, got {}", assets.length);
