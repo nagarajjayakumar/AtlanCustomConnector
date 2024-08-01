@@ -29,7 +29,7 @@ public class AtlanAssetPurger {
 
         try{
             AssetMutationResponse response =
-                    Asset.delete("08e2bc65-61d4-407d-9678-000d58734b0a"); //
+                    Asset.delete("64555684-78f7-43b1-af46-d9a270873d98"); //
 
 
             Asset deleted = response.getDeletedAssets().get(0);
