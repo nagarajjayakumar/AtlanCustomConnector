@@ -5,6 +5,8 @@ import com.atlan.model.enums.AtlanConnectorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 
 public class AtlanAssetPurger {
 
@@ -29,9 +31,12 @@ public class AtlanAssetPurger {
             AssetMutationResponse response =
                     Asset.delete("64555684-78f7-43b1-af46-d9a270873d98"); //
 
-
-            Asset deleted = response.getDeletedAssets().get(0);
-            logger.info("Deleted --> " + deleted);
+            List<Asset> deleteAsset = response.getDeletedAssets();
+            logger.warn("asset empty "+ deleteAsset.isEmpty());
+            if(null != response.getDeletedAssets() && ! response.getDeletedAssets().isEmpty()) {
+                Asset deleted = response.getDeletedAssets().get(0);
+                logger.info("Deleted --> " + deleted);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
